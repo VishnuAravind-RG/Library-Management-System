@@ -1,6 +1,6 @@
 # Library Management System (LMS)
 
-![Library Management System](https://via.placeholder.com/800x400?text=Library+Management+System) <!-- Add actual image if available -->
+ <!-- Add actual image if available -->
 
 ## Overview
 
