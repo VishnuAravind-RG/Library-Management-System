@@ -1,656 +1,775 @@
-import mysql.connector
-from mysql.connector import errorcode
-from datetime import date, datetime, timedelta
+import cx_Oracle
+from datetime import datetime
 import os
 import platform
+import tkinter as tk
+from tkinter import ttk, messagebox
 
+
+
+# Database Connection
+def get_connection():
+    try:
+        dsn = cx_Oracle.makedsn("10.1.67.153", 1522, service_name="orclNEW")
+        return cx_Oracle.connect(user='msc23pt38', password='msc23pt38', dsn=dsn)
+    except cx_Oracle.Error as err:
+        print(f"Database connection error: {err}")
+        return None
+
+
+
+# Utility Functions
 def clrscreen():
     if platform.system() == "Windows":
         os.system("cls")
     else:
         os.system("clear")
 
-def get_connection():
-    """Create and return a database connection."""
-    return mysql.connector.connect(user='root', password='123', host='localhost', database='Library')
+def insert_user():
+    while True:
+        try:
+            cnx = get_connection()
+            cursor = cnx.cursor()
 
-# User Management Functions
-def insertUser():
+            mno = input("Enter Member Code: ")
+            mname = input("Enter Member Name: ")
+            
+            while True:
+                try:
+                    dom = input("Enter Date of Membership (YYYY-MM-DD): ")
+                    dom_date = datetime.strptime(dom, "%Y-%m-%d").date()
+                    break
+                except ValueError:
+                    print("Invalid date format. Please use YYYY-MM-DD format.")
+            
+            addr = input("Enter Address: ")
+            mob = input("Enter Mobile Number: ")
+
+            cursor.callproc("InsertUser", [mno, mname, dom_date, addr, mob])
+            cnx.commit()
+            print("User inserted successfully!")
+            break
+            
+        except cx_Oracle.Error as err:
+            print(f"Database Error: {err}")
+            if "unique constraint" in str(err):
+                print("Member code already exists. Please try a different code.")
+            retry = input("Retry? (y/n): ").lower()
+            if retry != 'y':
+                break
+        except ValueError as err:
+            print(f"Invalid input: {err}")
+        finally:
+            if 'cursor' in locals():
+                cursor.close()
+            if 'cnx' in locals():
+                cnx.close()
+
+def update_user():
     try:
         cnx = get_connection()
         cursor = cnx.cursor()
-        
-        mno = input("Enter Member Code : ")
-        mname = input("Enter Member Name : ")
-        print("Enter Date of Membership (Date/Month and Year separately) : ")
-        DD = int(input("Enter Date : "))
-        MM = int(input("Enter Month : "))
-        YY = int(input("Enter Year : "))
-        addr = input("Enter Member Address : ")
-        mob = input("Enter Member Mobile No. : ")
 
-        qry = ("INSERT INTO Member VALUES (%s, %s, %s, %s, %s)")
-        data = (mno, mname, date(YY, MM, DD), addr, mob)
+        mno = input("Enter Member Code to update: ")
+        mname = input("Enter New Member Name: ")
         
-        cursor.execute(qry, data)
+        # Get date input with validation
+        while True:
+            dom = input("Enter New Date of Membership (YYYY-MM-DD): ")
+            try:
+                dom_date = datetime.strptime(dom, "%Y-%m-%d").date()
+                break
+            except ValueError:
+                print("Invalid date format. Please use YYYY-MM-DD format.")
+                
+        addr = input("Enter New Address: ")
+        mob = input("Enter New Mobile Number: ")
+
+        cursor.callproc("UpdateUser", [mno, mname, dom_date, addr, mob])
         cnx.commit()
-        
-        print("User Record Inserted.")
-    except mysql.connector.Error as err:
-        handle_db_error(err)
+        print("User updated successfully!")
+    except cx_Oracle.Error as err:
+        print(f"Error: {err}")
+    finally:
+        cursor.close()
+        cnx.close()
+def delete_user():
+    try:
+        cnx = get_connection()
+        cursor = cnx.cursor()
+
+        mno = input("Enter Member Code to delete: ")
+        cursor.callproc("DeleteUser", [mno])
+        cnx.commit()
+        print("User deleted successfully!")
+    except cx_Oracle.Error as err:
+        print(f"Error: {err}")
     finally:
         cursor.close()
         cnx.close()
 
-# Other existing functions...
-def updateUser():
+def search_user():
     try:
         cnx = get_connection()
         cursor = cnx.cursor()
-        
-        mno = input("Enter Member Code of Member to be Updated: ")
-        
-        print("Enter new data")
-        mname = input("Enter New Member Name : ")
-        print("Enter Date of Membership (Date/Month and Year separately) : ")
-        DD = int(input("Enter Date : "))
-        MM = int(input("Enter Month : "))
-        YY = int(input("Enter Year : "))
-        addr = input("Enter New Member Address : ")
-        mob = input("Enter New Member's mobile no : ")
 
-        qry = ("UPDATE Member SET Mname=%s, Date_of_Membership=%s, Addr=%s, Mob=%s WHERE Mno=%s")
-        data = (mname, date(YY, MM, DD), addr, mob, mno)
-        
-        cursor.execute(qry, data)
-        cnx.commit()
-        
-        print(cursor.rowcount,"User Record(s) Updated Successfully.")
-    except mysql.connector.Error as err:
-        handle_db_error(err)
+        mno = input("Enter Member Code to search: ")
+        ref_cursor = cursor.var(cx_Oracle.CURSOR)
+        cursor.callproc("SearchUser", [mno, ref_cursor])
+
+        result = ref_cursor.getvalue().fetchall()
+        if result:
+            for row in result:
+                print(f"Member Code: {row[0]}, Name: {row[1]}, Date of Membership: {row[2]}, Address: {row[3]}, Mobile: {row[4]}")
+        else:
+            print("No user found!")
+    except cx_Oracle.Error as err:
+        print(f"Error: {err}")
     finally:
-       cursor.close()
-       cnx.close()
+        cursor.close()
+        cnx.close()
 
-def deleteUser():
+# Catalog Management
+def insert_book():
     try:
         cnx = get_connection()
         cursor = cnx.cursor()
-        
-        mno = input("Enter Member Code to be deleted from the Library: ")
-        
-        qry = ("DELETE FROM Member WHERE MNO = %s")
-        del_rec = (mno,)
-        
-        cursor.execute(qry, del_rec)
+
+        bno = input("Enter Book Code: ")
+        bname = input("Enter Book Name: ")
+        auth = input("Enter Author: ")
+        price = float(input("Enter Price: "))
+        publ = input("Enter Publisher: ")
+
+        cursor.callproc("InsertBook", [bno, bname, auth, price, publ])
         cnx.commit()
-        
-        print(cursor.rowcount,"User Record(s) Deleted Successfully.")
-    except mysql.connector.Error as err:
-       handle_db_error(err)
+        print("Book inserted successfully!")
+    except cx_Oracle.Error as err:
+        print(f"Error: {err}")
     finally:
-       cursor.close()
-       cnx.close()
+        cursor.close()
+        cnx.close()
 
-def searchUser():
+def update_book():
+    while True:
+        try:
+            cnx = get_connection()
+            cursor = cnx.cursor()
+
+            bno = input("Enter Book Code to update: ")
+            bname = input("Enter New Book Name: ")
+            auth = input("Enter New Author: ")
+            
+            while True:
+                try:
+                    price = float(input("Enter New Price: "))
+                    break
+                except ValueError:
+                    print("Invalid price. Please enter a numeric value.")
+            
+            publ = input("Enter New Publisher: ")
+
+            cursor.callproc("UpdateBook", [bno, bname, auth, price, publ])
+            cnx.commit()
+            print("Book updated successfully!")
+            break
+            
+        except cx_Oracle.Error as err:
+            print(f"Database Error: {err}")
+            retry = input("Retry? (y/n): ").lower()
+            if retry != 'y':
+                break
+        except Exception as err:
+            print(f"Error: {err}")
+            retry = input("Retry? (y/n): ").lower()
+            if retry != 'y':
+                break
+        finally:
+            if 'cursor' in locals():
+                cursor.close()
+            if 'cnx' in locals():
+                cnx.close()
+
+def delete_book():
     try:
         cnx = get_connection()
         cursor = cnx.cursor()
-        
-        mno = input("Enter Member No to be Searched from the Library: ")
-        
-        query = ("SELECT * FROM Member WHERE MNO = %s")
-        rec_srch = (mno,)
-        
-        cursor.execute(query, rec_srch)
-        
-        rec_count = 0
-        for (Mno, Mname, Date_of_Membership, Addr, Mob) in cursor:
-            rec_count += 1
-            print("=============================================================")
-            print(f"Member Code : {Mno}")
-            print(f"Member Name : {Mname}")
-            print(f"Date of Membership : {Date_of_Membership}")
-            print(f"Address : {Addr}")
-            print(f"Mobile No. of Member : {Mob}")
-            print("=============================================================")
 
-            if rec_count % 2 == 0:
-                input("Press any key to continue")
+        bno = input("Enter Book Code to delete: ")
+        cursor.callproc("DeleteBook", [bno])
+        cnx.commit()
+        print("Book deleted successfully!")
+    except cx_Oracle.Error as err:
+        print(f"Error: {err}")
+    finally:
+        cursor.close()
+        cnx.close()
+
+def search_book():
+    while True:
+        try:
+            cnx = get_connection()
+            cursor = cnx.cursor()
+
+            bno = input("Enter Book Code to search: ")
+            ref_cursor = cursor.var(cx_Oracle.CURSOR)
+            cursor.callproc("SearchBook", [bno, ref_cursor])
+
+            result = ref_cursor.getvalue().fetchall()
+            if result:
+                for row in result:
+                    print(f"Book Code: {row[0]}, Name: {row[1]}, Author: {row[2]}, Price: {row[3]}, Publisher: {row[4]}")
+            else:
+                print("No book found!")
+            break
+            
+        except cx_Oracle.Error as err:
+            print(f"Database Error: {err}")
+            retry = input("Retry search? (y/n): ").lower()
+            if retry != 'y':
+                break
+        except Exception as err:
+            print(f"Error: {err}")
+            retry = input("Retry search? (y/n): ").lower()
+            if retry != 'y':
+                break
+        finally:
+            if 'cursor' in locals():
+                cursor.close()
+            if 'cnx' in locals():
+                cnx.close()
+
+# Fee Management
+def add_fee_structure():
+    try:
+        cnx = get_connection()
+        cursor = cnx.cursor()
+
+        fee_type = input("Enter Fee Type: ")
+        amount = float(input("Enter Amount: "))
+
+        cursor.callproc("AddFeeStructure", [fee_type, amount])
+        cnx.commit()
+        print("Fee structure added successfully!")
+    except cx_Oracle.Error as err:
+        print(f"Error: {err}")
+    finally:
+        cursor.close()
+        cnx.close()
+
+def record_payment():
+    while True:
+        try:
+            cnx = get_connection()
+            cursor = cnx.cursor()
+
+            mno = input("Enter Member Code: ")
+            
+            while True:
+                try:
+                    amount = float(input("Enter Amount: "))
+                    break
+                except ValueError:
+                    print("Invalid amount. Please enter a numeric value.")
+
+            cursor.callproc("RecordPayment", [mno, amount])
+            cnx.commit()
+            print("Payment recorded successfully!")
+            break
+            
+        except cx_Oracle.Error as err:
+            print(f"Database Error: {err}")
+            if "ORA-02291" in str(err):  # Integrity constraint violation
+                print("Member does not exist. Please check the member code.")
+            retry = input("Retry? (y/n): ").lower()
+            if retry != 'y':
+                break
+        except Exception as err:
+            print(f"Error: {err}")
+            retry = input("Retry? (y/n): ").lower()
+            if retry != 'y':
+                break
+        finally:
+            if 'cursor' in locals():
+                cursor.close()
+            if 'cnx' in locals():
+                cnx.close()
+
+def calculate_fine():
+    try:
+        cnx = get_connection()
+        cursor = cnx.cursor()
+
+        mno = input("Enter Member Code: ")
+        fine = cursor.callfunc("CalculateFine", cx_Oracle.NUMBER, [mno])
+        print(f"Total Fine for Member {mno}: ${fine:.2f}")
+    except cx_Oracle.Error as err:
+        print(f"Error: {err}")
+    finally:
+        cursor.close()
+        cnx.close()
+
+# Dynamic Reporting
+def most_popular_books():
+    try:
+        cnx = get_connection()
+        cursor = cnx.cursor()
+
+        ref_cursor = cursor.var(cx_Oracle.CURSOR)
+        cursor.callproc("MostPopularBooks", [ref_cursor])
+
+        result = ref_cursor.getvalue().fetchall()
+        if result:
+            print("Most Popular Books:")
+            for row in result:
+                print(f"Book Code: {row[0]}, Name: {row[1]}, Issue Count: {row[2]}")
+        else:
+            print("No data found!")
+    except cx_Oracle.Error as err:
+        print(f"Error: {err}")
+    finally:
+        cursor.close()
+        cnx.close()
+
+def most_active_members():
+    try:
+        cnx = get_connection()
+        cursor = cnx.cursor()
+
+        ref_cursor = cursor.var(cx_Oracle.CURSOR)
+        cursor.callproc("MostActiveMembers", [ref_cursor])
+
+        result = ref_cursor.getvalue().fetchall()
+        if result:
+            print("Most Active Members:")
+            for row in result:
+                print(f"Member Code: {row[0]}, Name: {row[1]}, Issue Count: {row[2]}")
+        else:
+            print("No data found!")
+    except cx_Oracle.Error as err:
+        print(f"Error: {err}")
+    finally:
+        cursor.close()
+        cnx.close()
+        
+        
+
+def books_issued_last_month():
+    try:
+        cnx = get_connection()
+        cursor = cnx.cursor()
+
+        ref_cursor = cursor.var(cx_Oracle.CURSOR)
+        cursor.callproc("BooksIssuedLastMonth", [ref_cursor])
+
+        result = ref_cursor.getvalue().fetchall()
+        if result:
+            print("Books Issued Last Month:")
+            for row in result:
+                print(f"Book Code: {row[0]}, Name: {row[1]}")
+        else:
+            print("No data found!")
+    except cx_Oracle.Error as err:
+        print(f"Error: {err}")
+    finally:
+        cursor.close()
+        cnx.close()
+
+# Notify Users About Overdue Books
+def notify_overdue_books():
+    try:
+        cnx = get_connection()
+        cursor = cnx.cursor()
+
+        cursor.callproc("NotifyOverdueBooks")
+        cnx.commit()
+        print("Notifications sent for overdue books!")
+    except cx_Oracle.Error as err:
+        print(f"Error: {err}")
+    finally:
+        cursor.close()
+        cnx.close()
+
+# Acquisition Management
+def add_acquisition():
+    try:
+        cnx = get_connection()
+        cursor = cnx.cursor()
+
+        bno = input("Enter Book Code: ")
+        cursor.callproc("AddAcquisition", [bno])
+        cnx.commit()
+        print("Acquisition added successfully!")
+    except cx_Oracle.Error as err:
+        print(f"Error: {err}")
+    finally:
+        cursor.close()
+        cnx.close()
+
+def receive_goods():
+    try:
+        cnx = get_connection()
+        cursor = cnx.cursor()
+
+        bno = input("Enter Book Code: ")
+        cursor.callproc("ReceiveGoods", [bno])
+        cnx.commit()
+        print("Goods received successfully!")
+    except cx_Oracle.Error as err:
+        print(f"Error: {err}")
+    finally:
+        cursor.close()
+        cnx.close()
+
+def process_invoice():
+    try:
+        cnx = get_connection()
+        cursor = cnx.cursor()
+
+        bno = input("Enter Book Code: ")
+        invoice_number = input("Enter Invoice Number: ")
+        invoice_date = input("Enter Invoice Date (YYYY-MM-DD): ")
+
+        # Convert date string to Oracle DATE
+        invoice_date = datetime.strptime(invoice_date, "%Y-%m-%d").date()
+
+        cursor.callproc("ProcessInvoice", [bno, invoice_number, invoice_date])
+        cnx.commit()
+        print("Invoice processed successfully!")
+    except cx_Oracle.Error as err:
+        print(f"Error: {err}")
+    finally:
+        cursor.close()
+        cnx.close()
+
+# Advanced Fee Management
+def add_fee_waiver():
+    try:
+        cnx = get_connection()
+        cursor = cnx.cursor()
+
+        mno = input("Enter Member Code: ")
+        fee_type = input("Enter Fee Type: ")
+        waiver_amount = float(input("Enter Waiver Amount: "))
+        reason = input("Enter Reason for Waiver: ")
+        approved_by = input("Enter Approved By (Admin ID): ")
+
+        cursor.callproc("AddFeeWaiver", [mno, fee_type, waiver_amount, reason, approved_by])
+        cnx.commit()
+        print("Fee waiver added successfully!")
+    except cx_Oracle.Error as err:
+        print(f"Error: {err}")
+    finally:
+        cursor.close()
+        cnx.close()
+
+def record_payment_history():
+    try:
+        cnx = get_connection()
+        cursor = cnx.cursor()
+
+        mno = input("Enter Member Code: ")
+        amount = float(input("Enter Amount: "))
+        payment_method = input("Enter Payment Method: ")
+
+        cursor.callproc("RecordPaymentHistory", [mno, amount, payment_method])
+        cnx.commit()
+        print("Payment history recorded successfully!")
+    except cx_Oracle.Error as err:
+        print(f"Error: {err}")
+    finally:
+        cursor.close()
+        cnx.close()
+
+def process_refund():
+    try:
+        cnx = get_connection()
+        cursor = cnx.cursor()
+
+        payment_id = int(input("Enter Payment ID: "))
+        refund_amount = float(input("Enter Refund Amount: "))
+        reason = input("Enter Reason for Refund: ")
+        approved_by = input("Enter Approved By (Admin ID): ")
+
+        cursor.callproc("ProcessRefund", [payment_id, refund_amount, reason, approved_by])
+        cnx.commit()
+        print("Refund processed successfully!")
+    except cx_Oracle.Error as err:
+        print(f"Error: {err}")
+    finally:
+        cursor.close()
+        cnx.close()
+
+# User Interface (GUI)
+class LibraryGUI:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("Library Management System")
+        self.theme = "light"  # Default theme
+        self.create_login_form()
+
+    def create_login_form(self):
+        self.login_frame = ttk.Frame(self.root, padding=20)
+        ttk.Label(self.login_frame, text="User ID:").grid(row=0, column=0)
+        self.user_id = ttk.Entry(self.login_frame)
+        self.user_id.grid(row=0, column=1)
+
+        ttk.Label(self.login_frame, text="Password:").grid(row=1, column=0)
+        self.password = ttk.Entry(self.login_frame, show="*")
+        self.password.grid(row=1, column=1)
+
+        ttk.Button(self.login_frame, text="Login", command=self.authenticate).grid(row=2, columnspan=2)
+        ttk.Button(self.login_frame, text="Toggle Theme", command=self.toggle_theme).grid(row=3, columnspan=2)
+        self.login_frame.pack()
+
+    def authenticate(self):
+        user_id = self.user_id.get()
+        password = self.password.get()
+
+        # Add your authentication logic here
+        if user_id == "admin" and password == "password":
+            self.show_main_menu()
+        else:
+            messagebox.showerror("Error", "Invalid credentials")
+
+    def show_main_menu(self):
+        self.login_frame.destroy()
+        menu_frame = ttk.Frame(self.root, padding=20)
+        ttk.Label(menu_frame, text="Welcome to Library Management System").grid(row=0, columnspan=2)
+
+        ttk.Button(menu_frame, text="Search Book", command=self.search_book).grid(row=1, column=0)
+        ttk.Button(menu_frame, text="Exit", command=self.root.quit).grid(row=1, column=1)
+        menu_frame.pack()
+
+    def search_book(self):
+        search_window = tk.Toplevel(self.root)
+        search_window.title("Search Book")
+
+        ttk.Label(search_window, text="Enter Book Code:").grid(row=0, column=0)
+        book_code = ttk.Entry(search_window)
+        book_code.grid(row=0, column=1)
+
+        ttk.Button(search_window, text="Search", command=lambda: self.perform_search(book_code.get())).grid(row=1, columnspan=2)
+
+    def perform_search(self, book_code):
+        try:
+            cnx = get_connection()
+            cursor = cnx.cursor()
+
+            cursor.execute("SELECT * FROM BookRecord WHERE BNO = :1", (book_code,))
+            result = cursor.fetchone()
+
+            if result:
+                messagebox.showinfo("Search Result", f"Book Code: {result[0]}, Name: {result[1]}, Author: {result[2]}")
+            else:
+                messagebox.showerror("Error", "Book not found!")
+        except cx_Oracle.Error as err:
+            messagebox.showerror("Error", f"Database Error: {err}")
+        finally:
+            cursor.close()
+            cnx.close()
+
+    def toggle_theme(self):
+        if self.theme == "light":
+            self.root.configure(bg="black")
+            self.theme = "dark"
+        else:
+            self.root.configure(bg="white")
+            self.theme = "light"
+
+# Main Menu
+def main():
+    while True:
+        clrscreen()
+        print("\t\t\t Library Management System\n")
+        print("==============================================================")
+        print("1. User Management")
+        print("2. Catalog Management")
+        print("3. Fee Management")
+        print("4. Dynamic Reporting")
+        print("5. Notify Overdue Books")
+        print("6. Acquisition Management")
+        print("7. Advanced Fee Management")
+        print("8. User Interface (GUI)")
+        print("9. Exit")
+
+        choice = input("Enter Choice between 1 to 9 -------> : ")
+
+        if choice == "1":
+            # User Management
+            while True:
                 clrscreen()
-
-            print(rec_count,"Record(s) found")
-    except mysql.connector.Error as err:
-       handle_db_error(err)
-    finally:
-       cursor.close()
-       cnx.close()
-
-# Catalog Management Functions
-def insertBook():
-    try:
-        cnx = get_connection()
-        cursor = cnx.cursor()
-
-        bno = input("Enter Book Code: ")
-        bname = input("Enter Book Name: ")
-        auth = input("Enter Author's Name: ")
-        price = float(input("Enter Price: "))
-        publ = input("Enter Publisher: ")
-        
-        qry = ("INSERT INTO BookRecord VALUES (%s, %s, %s, %s, %s)")
-        data = (bno, bname, auth, price, publ)
-
-        cursor.execute(qry, data)
-        cnx.commit()
-
-        print("Book Record Inserted.")
-    except mysql.connector.Error as err:
-       handle_db_error(err)
-    finally:
-       cursor.close()
-       cnx.close()
-
-def updateBook():
-    try:
-      cnx = get_connection()
-      cursor = cnx.cursor()
-
-      bno = input("Enter Book Code of Book to be Updated: ")
-
-      print("Enter new data")
-      bname = input("Enter New Book Name: ")
-      auth = input("Enter New Author's Name: ")
-      price = float(input("Enter New Price: "))
-      publ = input("Enter New Publisher: ")
-
-      qry = ("UPDATE BookRecord SET BName=%s, Auth=%s, Price=%s, Publ=%s WHERE BNO=%s")
-      data = (bname, auth, price, publ, bno)
-
-      cursor.execute(qry,data)
-      cnx.commit()
-
-      print(cursor.rowcount,"Book Record(s) Updated Successfully.")
-    except mysql.connector.Error as err:
-       handle_db_error(err)
-    finally:
-       cursor.close()
-       cnx.close()
-
-def deleteBook():
-    try:
-       cnx = get_connection()
-       cursor = cnx.cursor()
-
-       bno = input("Enter Book Code of Book to be deleted from the Library: ")
-
-       qry = ("DELETE FROM BookRecord WHERE BNO=%s")
-       del_rec =(bno,)
-       
-       cursor.execute(qry, del_rec)
-       cnx.commit()
-
-       print(cursor.rowcount,"Book Record(s) Deleted Successfully.")
-    except mysql.connector.Error as err:
-       handle_db_error(err)
-    finally:
-       cursor.close()
-       cnx.close()
-
-def searchBook():
-    try:
-       cnx= get_connection()
-       cursor=cnx.cursor()
-
-       bno=input("Enter Book Code to be Searched from the Library: ")
-
-       query=("SELECT * FROM BookRecord WHERE BNO=%s")
-       rec_srch=(bno,)
-       
-       cursor.execute(query , rec_srch)
-
-       rec_count=0
-       
-       for (Bno,Bname , Author , price , publ) in cursor :
-           rec_count+=1
-           print("===============================")
-           print(f"Book Code : {Bno}")
-           print(f"Book Name : {Bname}")
-           print(f"Author of Book : {Author}")
-           print(f"Price of Book : {price}")
-           print(f"Publisher : {publ}")
-           print("===============================")
-
-           if rec_count%2==0 :
-               input("Press any key to continue")
-               clrscreen()
-
-           print(rec_count,"Record(s) found")
-    except mysql.connector.Error as err:
-         handle_db_error(err)
-    finally:
-         cursor.close()
-         cnx.close()
-
-# Fee Management Functions
-def addFeeStructure():
-    try:
-         cnx=get_connection()
-         cursor=cnx.cursor()
-
-         fee_type=input("Enter Fee Type (e.g., Regular/Student): ")
-         amount=float(input("Enter Amount for this Fee Type: "))
-
-         qry=("INSERT INTO FeeStructure (FeeType, Amount) VALUES (%s,%s)")
-         data=(fee_type , amount)
-
-         cursor.execute(qry,data)
-         cnx.commit()
-
-         print ("Fee Structure Added Successfully.")
-         
-     except mysql.connector.Error as err :
-          handle_db_error(err)
-
-     finally :
-          cursor.close() 
-          cnx.close() 
-
-def recordPayment():
-     try :
-          cnx=get_connection() 
-          cursor=cnx.cursor() 
-
-          mno=input ("Enter Member Code for Payment: ") 
-          amount=float(input ("Enter Amount Paid: ")) 
-
-          qry=("INSERT INTO Payments (MNO , Amount , PaymentDate) VALUES (%s,%s,%s)") 
-          data=(mno , amount , date.today()) 
-
-          cursor.execute(qry,data) 
-          cnx.commit() 
-
-          print ("Payment Recorded Successfully.") 
-
-     except mysql.connector.Error as err :
-          handle_db_error(err)
-
-     finally :
-          cursor.close() 
-          cnx.close() 
-
-def calculateFine(mno):
-     """Calculate fine for overdue books."""
-     try:
-         today=date.today()
-         fine_per_day=0.5  # Adjust fine per day as needed
-
-         query=("SELECT d_o_ret FROM issue WHERE MNO=%s AND d_o_ret < %s") 
-         rec_srch=(mno , today)
-
-         # Calculate total fine based on overdue books
-         with get_connection() as conn:
-             with conn.cursor() as cur:
-                 cur.execute(query , rec_srch)
-
-                 total_fine=0
-                 for (due_date,) in cur.fetchall():
-                     days_overdue=(today - due_date).days
-                     total_fine+=days_overdue * fine_per_day
-
-                 return total_fine
-
-     except mysql.connector.Error as err :
-          handle_db_error(err)
-
-# Dynamic Reporting Functions
-def mostPopularBooks():
-    try:
-         cnx=get_connection() 
-         cursor=cnx.cursor() 
-
-         query="""SELECT BNO,BName,count(*) AS IssueCount 
-                  FROM issue 
-                  JOIN BookRecord ON issue.BNO=BookRecord.BNO 
-                  GROUP BY BNO,BName 
-                  ORDER BY IssueCount DESC LIMIT 5""" 
-
-         cursor.execute(query) 
-
-         results=cursor.fetchall() 
-
-         if results: 
-             print("\nMost Popular Books:\n") 
-             for row in results: 
-                 bno,bname,count=row 
-                 print(f"Book Code: {bno}, Book Name: {bname}, Issued Count: {count}") 
-         else: 
-             print("\nNo records found.") 
-
-     except mysql.connector.Error as err :
-          handle_db_error(err)
-
-     finally :
-          cursor.close() 
-          cnx.close() 
-
-def mostActiveMembers():
-     try:
-         cnx=get_connection() 
-         cursor=cnx.cursor() 
-
-         query="""SELECT MNO,Mname,count(*) AS IssueCount 
-                  FROM issue 
-                  JOIN Member ON issue.MNO=Member.MNO 
-                  GROUP BY MNO,Mname 
-                  ORDER BY IssueCount DESC LIMIT 5""" 
-
-         cursor.execute(query) 
-
-         results=cursor.fetchall() 
-
-         if results: 
-             print("\nMost Active Members:\n") 
-             for row in results: 
-                 mno,mname,count=row 
-                 print(f"Member Code: {mno}, Member Name: {mname}, Issued Count: {count}") 
-         else: 
-             print("\nNo records found.") 
-
-     except mysql.connector.Error as err :
-          handle_db_error(err)
-
-     finally :
-          cursor.close() 
-          cnx.close() 
-
-def booksIssuedLastMonth():
-     try:
-         today=datetime.today() 
-         last_month=today - timedelta(days=30) 
-
-         query="""SELECT BNO,BName FROM issue 
-                  JOIN BookRecord ON issue.BNO=BookRecord.BNO 
-                  WHERE d_o_issue >= %s""" 
-
-         with get_connection() as conn: 
-             with conn.cursor() as cur: 
-                 cur.execute(query,(last_month,))
-                 results=cur.fetchall() 
-
-                 if results:  
-                     print("\nBooks Issued in the Last Month:\n")  
-                     for row in results:  
-                         bno,bname=row  
-                         print(f"Book Code: {bno}, Book Name: {bname}")  
-                 else:  
-                     print("\nNo records found.")  
-
-     except mysql.connector.Error as err :
-          handle_db_error(err)
-
-# Enhanced User Interactivity Functions
-def notifyUsersAboutOverdueBooks():
-    """Notify users about overdue books."""
-    today=date.today()
-    
-    query=("SELECT MNO,Mname,d_o_ret FROM issue "
-           "JOIN Member ON issue.MNO=Member.MNO "
-           "WHERE d_o_ret < %s")
-
-    with get_connection() as conn:
-         with conn.cursor() as cur:
-             cur.execute(query,(today,))
-             overdue_records=cur.fetchall()
-
-             if overdue_records:
-                 for record in overdue_records:
-                     mno,mname,due_date=record
-                     days_overdue=(today - due_date).days
-                     fine_amount=days_overdue * 0.5  # Assuming $0.5 per day fine
-                     # Here you can implement actual notification logic (e.g., email/SMS notifications)
-                     print(f"Notification sent to {mname} ({mno}): You have an overdue book! Total fine is ${fine_amount:.2f}.")
-             else:
-                 print("\nNo overdue notifications to send.")
-
-# Acquisition Management Functions
-def addAcquisition():
-    try:
-        cnx = get_connection()
-        cursor = cnx.cursor()
-
-        bno = input("Enter Book Code: ")
-        bname = input("Enter Book Name: ")
-        auth = input("Enter Author's Name: ")
-        price = float(input("Enter Price: "))
-        publ = input("Enter Publisher: ")
-
-        # Insert into BookRecord first
-        qry_book = ("INSERT INTO BookRecord (BNO, BName, Auth, Price, Publ) VALUES (%s, %s, %s, %s, %s)")
-        data_book = (bno, bname, auth, price, publ)
-        
-        cursor.execute(qry_book, data_book)
-
-        # Now insert into Acquisition record
-        qry_acquisition = ("INSERT INTO Acquisitions (BNO) VALUES (%s)")
-        data_acquisition = (bno,)
-        
-        cursor.execute(qry_acquisition, data_acquisition)
-        
-        cnx.commit()
-
-        print("Acquisition Record Added Successfully.")
-    except mysql.connector.Error as err:
-       handle_db_error(err)
-    finally:
-       cursor.close()
-       cnx.close()
-
-def receiveGoods():
-    try:
-        cnx = get_connection()
-        cursor = cnx.cursor()
-
-        bno = input("Enter Book Code for Received Goods: ")
-
-        # Update the status in the Acquisitions table or similar logic
-        qry_receive = ("UPDATE Acquisitions SET Status='Received' WHERE BNO=%s")
-        
-        cursor.execute(qry_receive, (bno,))
-        
-        cnx.commit()
-
-        print(f"Goods for Book Code {bno} marked as received.")
-    except mysql.connector.Error as err:
-       handle_db_error(err)
-    finally:
-       cursor.close()
-       cnx.close()
-
-def processInvoice():
-    try:
-         cnx=get_connection() 
-         cursor=cnx.cursor() 
-
-         bno=input("Enter Book Code for Invoice Processing: ")
-         invoice_number=input("Enter Invoice Number: ")
-         invoice_date=input("Enter Invoice Date (YYYY-MM-DD): ")
-
-         qry=("INSERT INTO Invoices (BNO , InvoiceNumber , InvoiceDate) VALUES (%s,%s,%s)") 
-         data=(bno , invoice_number , invoice_date) 
-
-         cursor.execute(qry,data) 
-         cnx.commit() 
-
-         print ("Invoice Processed Successfully.") 
-
-     except mysql.connector.Error as err :
-          handle_db_error(err)
-
-     finally :
-          cursor.close() 
-          cnx.close() 
-
-# Main Program Execution
+                print("\t\t\t User Management\n")
+                print("==============================================================")
+                print("1. Insert User")
+                print("2. Update User")
+                print("3. Delete User")
+                print("4. Search User")
+                print("5. Return to Main Menu")
+
+                user_choice = input("Enter Choice between 1 to 5 -------> : ")
+
+                if user_choice == "1":
+                    insert_user()
+                elif user_choice == "2":
+                    update_user()
+                elif user_choice == "3":
+                    delete_user()
+                elif user_choice == "4":
+                    search_user()
+                elif user_choice == "5":
+                    break
+                else:
+                    print("Invalid choice! Please select again.")
+                input("Press any key to continue...")
+
+        elif choice == "2":
+            # Catalog Management
+            while True:
+                clrscreen()
+                print("\t\t\t Catalog Management\n")
+                print("==============================================================")
+                print("1. Insert Book")
+                print("2. Update Book")
+                print("3. Delete Book")
+                print("4. Search Book")
+                print("5. Return to Main Menu")
+
+                catalog_choice = input("Enter Choice between 1 to 5 -------> : ")
+
+                if catalog_choice == "1":
+                    insert_book()
+                elif catalog_choice == "2":
+                    update_book()
+                elif catalog_choice == "3":
+                    delete_book()
+                elif catalog_choice == "4":
+                    search_book()
+                elif catalog_choice == "5":
+                    break
+                else:
+                    print("Invalid choice! Please select again.")
+                input("Press any key to continue...")
+
+        elif choice == "3":
+            # Fee Management
+            while True:
+                clrscreen()
+                print("\t\t\t Fee Management\n")
+                print("==============================================================")
+                print("1. Add Fee Structure")
+                print("2. Record Payment")
+                print("3. Calculate Fine")
+                print("4. Return to Main Menu")
+
+                fee_choice = input("Enter Choice between 1 to 4 -------> : ")
+
+                if fee_choice == "1":
+                    add_fee_structure()
+                elif fee_choice == "2":
+                    record_payment()
+                elif fee_choice == "3":
+                    calculate_fine()
+                elif fee_choice == "4":
+                    break
+                else:
+                    print("Invalid choice! Please select again.")
+                input("Press any key to continue...")
+
+        elif choice == "4":
+            # Dynamic Reporting
+            while True:
+                clrscreen()
+                print("\t\t\t Dynamic Reporting\n")
+                print("==============================================================")
+                print("1. Most Popular Books")
+                print("2. Most Active Members")
+                print("3. Books Issued Last Month")
+                print("4. Return to Main Menu")
+
+                report_choice = input("Enter Choice between 1 to 4 -------> : ")
+
+                if report_choice == "1":
+                    most_popular_books()
+                elif report_choice == "2":
+                    most_active_members()
+                elif report_choice == "3":
+                    books_issued_last_month()
+                elif report_choice == "4":
+                    break
+                else:
+                    print("Invalid choice! Please select again.")
+                input("Press any key to continue...")
+
+        elif choice == "5":
+            # Notify Overdue Books
+            notify_overdue_books()
+            input("Press any key to continue...")
+
+        elif choice == "6":
+            # Acquisition Management
+            while True:
+                clrscreen()
+                print("\t\t\t Acquisition Management\n")
+                print("==============================================================")
+                print("1. Add Acquisition")
+                print("2. Receive Goods")
+                print("3. Process Invoice")
+                print("4. Return to Main Menu")
+
+                acquisition_choice = input("Enter Choice between 1 to 4 -------> : ")
+
+                if acquisition_choice == "1":
+                    add_acquisition()
+                elif acquisition_choice == "2":
+                    receive_goods()
+                elif acquisition_choice == "3":
+                    process_invoice()
+                elif acquisition_choice == "4":
+                    break
+                else:
+                    print("Invalid choice! Please select again.")
+                input("Press any key to continue...")
+
+        elif choice == "7":
+            # Advanced Fee Management
+            while True:
+                clrscreen()
+                print("\t\t\t Advanced Fee Management\n")
+                print("==============================================================")
+                print("1. Add Fee Waiver")
+                print("2. Record Payment History")
+                print("3. Process Refund")
+                print("4. Return to Main Menu")
+
+                advanced_fee_choice = input("Enter Choice between 1 to 4 -------> : ")
+
+                if advanced_fee_choice == "1":
+                    add_fee_waiver()
+                elif advanced_fee_choice == "2":
+                    record_payment_history()
+                elif advanced_fee_choice == "3":
+                    process_refund()
+                elif advanced_fee_choice == "4":
+                    break
+                else:
+                    print("Invalid choice! Please select again.")
+                input("Press any key to continue...")
+
+        elif choice == "8":
+            # User Interface (GUI)
+            app = LibraryGUI()
+            app.root.mainloop()
+            
+
+        elif choice == "9":
+            print("Exiting the program...")
+            break
+
+        else:
+            print("Invalid choice! Please select again.")
+            input("Press any key to continue...")
+
+# Main Execution
 if __name__ == "__main__":
-     Database.DatabaseCreate()  # Assuming this function exists
-     Database.TablesCreate()     # Assuming this function exists
-
-     while True:
-          clrscreen()
-          print("\t\t\t Library Management\n")
-          print("==============================================================")
-          print("1. User Management")  
-          print("2. Catalog Management")  
-          print("3. Acquisition Management")  # Added option for acquisition management
-          print("4. Issue/Return Book")  
-          print("5. Renew a Book")  
-          print("6. Fee Management")  
-          print("7. Dynamic Reporting")  
-          print("8. Exit")
-
-          choice=int(input ("Enter Choice between 1 to 8 -------> : "))
-
-          if choice == 1:
-              while True:
-                  clrscreen()
-                  print("\t\t\t User Management\n")
-                  print("===============================")
-                  print ("1. Add User")
-                  print ("2. Update User")
-                  print ("3. Delete User")
-                  print ("4. Search User")
-                  print ("5. Return to Main Menu")
-
-                  user_choice=int(input ("Choose an option (1-5): "))
-
-                  if user_choice == 1:
-                      insertUser()
-                  elif user_choice == 2:
-                      updateUser()
-                  elif user_choice == 3:
-                      deleteUser()
-                  elif user_choice == 4:
-                      searchUser()
-                  elif user_choice == 5:
-                      break
-                  else:
-                      print ("Invalid choice! Please select again.")
-
-          elif choice == 2:  # Catalog Management Menu
-              while True:
-                  clrscreen()
-                  print("\t\t\t Catalog Management\n")
-                  print("===============================")
-                  print ("1. Add Book")
-                  print ("2. Update Book")
-                  print ("3. Delete Book")
-                  print ("4. Search for Books")
-                  print ("5. Return to Main Menu")
-
-                  catalog_choice=int(input ("Choose an option (1-5): "))
-
-                  if catalog_choice == 1:
-                      insertBook() 
-                  elif catalog_choice == 2:
-                      updateBook() 
-                  elif catalog_choice == 3:
-                      deleteBook() 
-                  elif catalog_choice == 4:
-                      searchBook() 
-                  elif catalog_choice == 5:
-                      break 
-                  else:
-                      print ("Invalid choice! Please select again.")
-
-          elif choice == 3:  # Acquisition Management Menu
-              while True:
-                   clrscreen()
-                   print("\t\t\t Acquisition Management\n")
-                   print("===============================")
-                   print ("1. Add Acquisition")
-                   print ("2. Receive Goods")
-                   print ("3. Process Invoice")
-                   print ("4. Return to Main Menu")
-
-                   acquisition_choice=int(input ("Choose an option (1-4): "))
-
-                   if acquisition_choice == 1:
-                       addAcquisition() 
-                   elif acquisition_choice == 2:
-                       receiveGoods() 
-                   elif acquisition_choice == 3:  
-                       processInvoice()   
-                   elif acquisition_choice == 4:  
-                       break   
-                   else:  
-                       print ("Invalid choice! Please select again.")
-
-          elif choice == 4: 
-              Menulib.MenuIssueReturn() # Assuming this function exists
-
-          elif choice == 5: 
-              renewBook()  
-
-          elif choice == 6:  
-              # Fee management code here...
-              # Fee Management Menu
-             while True:
-                  clrscreen()
-                  printf("\t\t\t Fee Management\n")
-                  printf("===============================")
-                  printf ("1. Add Fee Structure")
-                  printf ("2. Record Payment")
-                  printf ("3. Calculate Fine for a Member")
-                  printf ("4. Return to Main Menu")
-
-                  fee_choice=int(input ("Choose an option (1-4): "))
-
-                  if fee_choice == 1:
-                      addFeeStructure() 
-                  elif fee_choice == 2:
-                      recordPayment() 
-                  elif fee_choice == 3:  
-                      mno=input ("Enter Member Code to calculate fine: ")  
-                      total_fine=calculateFine(mno)  
-                      if total_fine > 0:  
-                          printf(f"Total Fine for member {mno}: ${total_fine:.2f}")  
-                      else:  
-                          printf(f"No outstanding fines for member {mno}.")  
-                  elif fee_choice == 4:  
-                      break  
-                  else:  
-                      printf ("Invalid choice! Please select again.")
-
-
-          elif choice == 7:  
-              # Dynamic reporting code here...
-              # Dynamic Reporting Menu
-              while True:
-                   clrscreen()
-                   printf("\t\t\t Dynamic Reporting\n")
-                   printf("===============================")
-                   printf ("1. Most Popular Books")
-                   printf ("2. Most Active Members")
-                   printf ("3. Books Issued in the Last Month")
-                   printf ("4. Return to Main Menu")
-
-                   report_choice=int(input ("Choose an option (1-4): "))
-
-                   if report_choice == 1:
-                       mostPopularBooks() 
-                   elif report_choice == 2:
-                       mostActiveMembers()  
-                   elif report_choice == 3:  
-                       booksIssuedLastMonth()   
-                   elif report_choice == 4:  
-                       break   
-                   else:  
-                       printf ("Invalid choice! Please select again.")
-
-
-          elif choice == 8: # Exit option
-              break 
-
-          else: # Invalid choice handling
-              print ("Invalid choice! Please select again.")
+    main()
