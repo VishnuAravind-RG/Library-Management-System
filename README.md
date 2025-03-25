@@ -1,74 +1,123 @@
-# Library Management System
+Library Management System (LMS) Documentation
+Overview
+The Library Management System is a Python-based application with Oracle database integration that efficiently manages library operations. It provides a comprehensive solution for user management, catalog management, fee processing, and reporting through both console and GUI interfaces.
 
-## Overview
-The Library Management System (LMS) is a comprehensive software application designed to manage the operations of a library effectively. It provides functionalities for managing users, books, acquisitions, fees, and dynamic reporting. The system aims to streamline library processes and enhance user interaction.
+Key Features
+Core Functionalities
+User Management: Full CRUD operations for library members
 
-## Features
+Catalog Management: Complete book inventory control
 
-### User Management
-- Add, update, delete, and search for library members.
-- Notify users about overdue books.
+Fee Processing: Automated fee calculations and payment tracking
 
-### Catalog Management
-- Add, update, delete, and search for books in the library catalog.
+Acquisition Workflow: End-to-end management of new book acquisitions
 
-### Acquisition Management
-- Manage the acquisition of new books and resources.
-- Record the receipt of goods and process invoices.
+Advanced Features
+Dynamic Reporting: Real-time analytics on library usage
 
-### Fee Management
-- Manage membership fees and track payments.
-- Automatically calculate fines for overdue books.
+Automated Notifications: Overdue book alerts
 
-### Dynamic Reporting
-- Generate reports on:
-  - Most popular books.
-  - Most active members.
-  - Books issued in the last month.
-  - Overdue books and fines.
+Dual Interface: Both console and graphical user interfaces
 
-### Enhanced User Interactivity
-- Real-time notifications for overdue books.
-- Interactive help menu for user guidance.
-- User profiles to view borrowing history.
+Technology Stack
+Backend
+Python 3.x
 
-## Technologies Used
-- Python
-- MySQL (Database)
-- MySQL Connector/Python
+cx_Oracle for Oracle database connectivity
 
-## Installation
+Tkinter for GUI components
 
-### Prerequisites
-1. Python 3.x installed on your machine.
-2. MySQL Server installed and running.
-3. MySQL Connector/Python library installed. You can install it using pip:
+Database
+Oracle Database (Version 19c or compatible)
 
+PL/SQL Procedures for business logic
 
-### Database Setup
-1. Create a database named `Library` in MySQL.
-2. Execute the SQL scripts provided in the code to create the required tables:
-- `Member`
-- `BookRecord`
-- `Acquisitions`
-- `Invoices`
-- `FeeStructure`
-- `Payments`
-- `issue`
+Installation Guide
+Prerequisites
+Python 3.8+
 
-### Running the Application
-1. Clone this repository:
+Oracle Database (Tested with 19c)
 
+Oracle Client Libraries
 
-## Usage
-Follow the on-screen prompts to navigate through different functionalities of the system. The main menu allows you to choose between user management, catalog management, acquisition management, fee management, dynamic reporting, and exiting the application.
+cx_Oracle package (pip install cx_Oracle)
 
-## Contribution
-Contributions are welcome! If you have suggestions or improvements, please feel free to create a pull request or open an issue.
+Database Configuration
+Execute the provided SQL scripts to create:
 
-## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+Tables (Users, BookRecord, FeeStructure, etc.)
 
-## Acknowledgments
-- Thanks to all contributors and libraries that made this project possible!
+Stored procedures (InsertUser, UpdateBook, etc.)
+
+Sequences and constraints
+
+Configure the connection in get_connection() function:
+
+python
+Copy
+dsn = cx_Oracle.makedsn("your_host", "your_port", service_name="your_service")
+connection = cx_Oracle.connect(user='your_username', password='your_password', dsn=dsn)
+System Architecture
+Database Schema
+Users: Member information (MNO, MNAME, DOM, ADDR, MOB)
+
+BookRecord: Book inventory (BNO, BNAME, AUTHOR, PRICE, PUBL)
+
+FeeStructure: Fee configurations (FEE_TYPE, AMOUNT)
+
+Payments: Transaction records (PAYMENT_ID, MNO, AMOUNT, PAYMENT_DATE)
+
+Application Layers
+Presentation Layer: Console menus and Tkinter GUI
+
+Business Logic Layer: Python functions and Oracle stored procedures
+
+Data Access Layer: cx_Oracle connection handlers
+
+Usage Guide
+Console Interface
+Navigate through hierarchical menus:
+
+Main Menu → User Management → [Sub-options]
+
+All operations feature input validation and error recovery
+
+GUI Interface
+Accessible through main menu option 8:
+
+Login with credentials (admin/password)
+
+Search functionality with real-time results
+
+Theme customization (light/dark mode)
+
+Error Handling System
+The application implements comprehensive error handling:
+
+Database constraint violations
+
+Input validation failures
+
+Connection issues
+
+Business logic exceptions
+
+All errors provide:
+
+Clear user-friendly messages
+
+Context-specific recovery options
+
+Detailed logging
+
+Reporting Module
+Generate valuable insights:
+
+Popularity Analytics: Most issued books
+
+Member Activity: Frequent borrowers
+
+Temporal Analysis: Recent checkouts
+
+Financial Reports: Fee collections
 
