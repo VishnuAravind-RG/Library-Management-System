@@ -1,30 +1,29 @@
 # Library Management System (LMS)
 
- <!-- Add actual image if available -->
+<!-- Add actual image if available -->
 
 ## Overview
 
-The Library Management System is a Python-based application with Oracle database integration that efficiently manages library operations. It provides a comprehensive solution for user management, catalog management, fee processing, and reporting through both console and GUI interfaces.
+The Library Management System is a Python-based application integrated with an Oracle database to streamline library operations. It offers a robust solution for managing users, books, fines, and reporting through a console-based interface, with audit logging for tracking system activities.
 
 ## Key Features
 
 ### Core Functionalities
-- **User Management**: Full CRUD operations for library members
-- **Catalog Management**: Complete book inventory control
-- **Fee Processing**: Automated fee calculations and payment tracking
-- **Acquisition Workflow**: End-to-end management of new book acquisitions
+- **User Management**: Create, update, delete, and search library members.
+- **Catalog Management**: Add, modify, remove, and search books in the inventory.
+- **Fine Processing**: Calculate overdue fines, process payments, and view fine history.
+- **Issue Management**: Issue books to members with a cart-based system and track due dates.
 
 ### Advanced Features
-- **Dynamic Reporting**: Real-time analytics on library usage
-- **Automated Notifications**: Overdue book alerts
-- **Dual Interface**: Both console and graphical user interfaces
+- **Dynamic Reporting**: Generate reports on popular books, active members, and recent issues.
+- **Audit Logging**: Track all significant actions (e.g., insertions, updates, deletions) with user IDs and timestamps.
+- **Console Interface**: Interactive command-line interface for all operations.
 
 ## Technology Stack
 
 ### Backend
 - Python 3.x
-- cx_Oracle for Oracle database connectivity
-- Tkinter for GUI components
+- `cx_Oracle` for Oracle database connectivity
 
 ### Database
 - Oracle Database (Version 19c or compatible)
@@ -33,18 +32,9 @@ The Library Management System is a Python-based application with Oracle database
 ## Installation Guide
 
 ### Prerequisites
-1. Python 3.8+
-2. Oracle Database (Tested with 19c)
-3. Oracle Client Libraries
-4. cx_Oracle package (`pip install cx_Oracle`)
-
-### Database Configuration
-1. Execute the provided SQL scripts to create:
-   - Tables (Users, BookRecord, FeeStructure, etc.)
-   - Stored procedures (InsertUser, UpdateBook, etc.)
-   - Sequences and constraints
-
-2. Configure the connection in `get_connection()` function:
-```python
-dsn = cx_Oracle.makedsn("your_host", "your_port", service_name="your_service")
-connection = cx_Oracle.connect(user='your_username', password='your_password', dsn=dsn)
+1. **Python 3.8+**: Ensure Python is installed on your system.
+2. **Oracle Database**: Tested with Oracle 19c; other compatible versions may work.
+3. **Oracle Client Libraries**: Install Oracle Instant Client and configure it in your environment.
+4. **cx_Oracle Package**: Install via pip:
+   ```bash
+   pip install cx_Oracle
