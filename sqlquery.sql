@@ -1,122 +1,255 @@
+-- Drop tables if they exist (in reverse order of dependencies)
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE Refund';
+EXCEPTION
+   WHEN OTHERS THEN NULL;
+END;
+/
 
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE FeeWaiver';
+EXCEPTION
+   WHEN OTHERS THEN NULL;
+END;
+/
 
--- Users Table (renamed from Member to match procedure references)
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE Invoice';
+EXCEPTION
+   WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE Acquisition';
+EXCEPTION
+   WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE Fines';
+EXCEPTION
+   WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE Return';
+EXCEPTION
+   WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE Issue';
+EXCEPTION
+   WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE Payment';
+EXCEPTION
+   WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE FeeStructure';
+EXCEPTION
+   WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE BookRecord';
+EXCEPTION
+   WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE Users';
+EXCEPTION
+   WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE AUDIT_LOG';
+EXCEPTION
+   WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE Feedback';
+EXCEPTION
+   WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE SupportTickets';
+EXCEPTION
+   WHEN OTHERS THEN NULL;
+END;
+/
+
+BEGIN
+   EXECUTE IMMEDIATE 'DROP TABLE Backups';
+EXCEPTION
+   WHEN OTHERS THEN NULL;
+END;
+/
+
+-- Create Users Table
 CREATE TABLE Users (
     MNO VARCHAR2(20) PRIMARY KEY,
-    MNAME VARCHAR2(100),
-    DOM DATE,  -- Changed from DATE_OF_MEMBERSHIP to match procedure parameter
+    MNAME VARCHAR2(100) NOT NULL,
+    DOM DATE NOT NULL,
     ADDR VARCHAR2(200),
-    MOB VARCHAR2(15)
+    MOB VARCHAR2(15) NOT NULL
 );
 
--- BookRecord Table
+-- Create BookRecord Table
 CREATE TABLE BookRecord (
     BNO VARCHAR2(20) PRIMARY KEY,
-    BNAME VARCHAR2(100),
-    AUTHOR VARCHAR2(100),  -- Changed from AUTH to match procedure parameter
-    PRICE NUMBER(10, 2),
-    PUBL VARCHAR2(100)
+    BNAME VARCHAR2(100) NOT NULL,
+    AUTHOR VARCHAR2(100) NOT NULL,
+    PRICE NUMBER(10, 2) NOT NULL,
+    PUBL VARCHAR2(100) NOT NULL
 );
 
--- FeeStructure Table
+-- Create FeeStructure Table
 CREATE TABLE FeeStructure (
-    FEE_TYPE VARCHAR2(50) PRIMARY KEY,  -- Changed from FeeType to match procedure
-    AMOUNT NUMBER(10, 2)
+    FEE_TYPE VARCHAR2(50) PRIMARY KEY,
+    AMOUNT NUMBER(10, 2) NOT NULL
 );
 
--- Payment Table (renamed from Payments to singular to match procedure)
+-- Create Payment Table
 CREATE TABLE Payment (
-    PaymentID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    MNO VARCHAR2(20),
-    AMOUNT NUMBER(10, 2),
-    PAYMENT_DATE DATE,  -- Changed from PaymentDate to match procedure
-    PAYMENT_METHOD VARCHAR2(50)  -- Added for RecordPaymentHistory procedure
+    PAYMENT_ID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    MNO VARCHAR2(20) NOT NULL,
+    AMOUNT NUMBER(10, 2) NOT NULL,
+    PAYMENT_DATE DATE DEFAULT SYSDATE,
+    PAYMENT_METHOD VARCHAR2(50),
+    FOREIGN KEY (MNO) REFERENCES Users(MNO)
 );
 
--- Issue Table
+-- Create Issue Table
 CREATE TABLE Issue (
-    IssueID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    MNO VARCHAR2(20),
-    BNO VARCHAR2(20),
-    ISSUE_DATE DATE,  -- Changed from d_o_issue to match procedure logic
-    RETURN_DATE DATE,  -- Changed from d_o_ret to match procedure logic
+    ISSUE_ID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    MNO VARCHAR2(20) NOT NULL,
+    BNO VARCHAR2(20) NOT NULL,
+    ISSUE_DATE DATE DEFAULT SYSDATE,
+    RETURN_DATE DATE,
     FOREIGN KEY (MNO) REFERENCES Users(MNO),
     FOREIGN KEY (BNO) REFERENCES BookRecord(BNO)
 );
 
--- Acquisition Table (renamed from Acquisitions to singular)
+-- Create Return Table (for tracking due dates)
+CREATE TABLE Return (
+    RETURN_ID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    ISSUE_ID NUMBER NOT NULL,
+    DUE_DATE DATE NOT NULL,
+    ACTUAL_RETURN_DATE DATE,
+    FOREIGN KEY (ISSUE_ID) REFERENCES Issue(ISSUE_ID)
+);
+
+-- Create Fines Table
+CREATE TABLE Fines (
+    FINE_ID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    ISSUE_ID NUMBER NOT NULL,
+    FINE_AMOUNT NUMBER(10,2) NOT NULL,
+    FINE_DATE DATE DEFAULT SYSDATE,
+    PAID_STATUS CHAR(1) DEFAULT 'N' CHECK (PAID_STATUS IN ('Y', 'N')),
+    PAYMENT_DATE DATE,
+    PAYMENT_METHOD VARCHAR2(20),
+    FOREIGN KEY (ISSUE_ID) REFERENCES Issue(ISSUE_ID)
+);
+
+-- Create Acquisition Table
 CREATE TABLE Acquisition (
     ACQUISITION_ID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    BNO VARCHAR2(20),
-    ACQ_DATE DATE,  -- Added for ReceiveGoods procedure
-    STATUS VARCHAR2(20) CHECK(Status IN ('Pending', 'Received')),
+    BNO VARCHAR2(20) NOT NULL,
+    ACQ_DATE DATE,
+    STATUS VARCHAR2(20) DEFAULT 'Pending' CHECK(STATUS IN ('Pending', 'Received')),
     FOREIGN KEY (BNO) REFERENCES BookRecord(BNO)
 );
 
--- Invoice Table (renamed from Invoices to singular)
+-- Create Invoice Table
 CREATE TABLE Invoice (
     INVOICE_ID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    BNO VARCHAR2(20),
-    INVOICE_NUMBER VARCHAR2(50),  -- Changed from InvoiceNumber to match procedure
-    INVOICE_DATE DATE,  -- Changed from InvoiceDate to match procedure
+    BNO VARCHAR2(20) NOT NULL,
+    INVOICE_NUMBER VARCHAR2(50) NOT NULL,
+    INVOICE_DATE DATE NOT NULL,
     FOREIGN KEY (BNO) REFERENCES BookRecord(BNO)
 );
 
--- FeeWaiver Table (renamed from FeeWaivers to singular)
+-- Create FeeWaiver Table
 CREATE TABLE FeeWaiver (
     WAIVER_ID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    MNO VARCHAR2(20),
-    FEE_TYPE VARCHAR2(50),
-    WAIVER_AMOUNT NUMBER(10, 2),
+    MNO VARCHAR2(20) NOT NULL,
+    FEE_TYPE VARCHAR2(50) NOT NULL,
+    WAIVER_AMOUNT NUMBER(10, 2) NOT NULL,
     REASON VARCHAR2(200),
-    APPROVED_BY VARCHAR2(20),
-    TIMESTAMP DATE,
-    FOREIGN KEY (MNO) REFERENCES Users(MNO)
+    APPROVED_BY VARCHAR2(20) NOT NULL,
+    TIMESTAMP DATE DEFAULT SYSDATE,
+    FOREIGN KEY (MNO) REFERENCES Users(MNO),
+    FOREIGN KEY (FEE_TYPE) REFERENCES FeeStructure(FEE_TYPE)
 );
 
--- Refund Table (renamed from Refunds to singular)
+-- Create Refund Table
 CREATE TABLE Refund (
     REFUND_ID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    PAYMENT_ID NUMBER,
-    REFUND_AMOUNT NUMBER(10, 2),
+    PAYMENT_ID NUMBER NOT NULL,
+    REFUND_AMOUNT NUMBER(10, 2) NOT NULL,
     REASON VARCHAR2(200),
-    APPROVED_BY VARCHAR2(20),
-    TIMESTAMP DATE,
-    FOREIGN KEY (PAYMENT_ID) REFERENCES Payment(PaymentID)
+    APPROVED_BY VARCHAR2(20) NOT NULL,
+    TIMESTAMP DATE DEFAULT SYSDATE,
+    FOREIGN KEY (PAYMENT_ID) REFERENCES Payment(PAYMENT_ID)
 );
 
--- AuditTrails Table (unchanged but added for completeness)
-CREATE TABLE AuditTrails (
-    AuditID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    UserID VARCHAR2(20),
-    ActivityType VARCHAR2(50),
-    Timestamp DATE
+-- Create Audit Log Table
+CREATE TABLE AUDIT_LOG (
+    ACTION_ID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    ACTION_TYPE VARCHAR2(50) NOT NULL,
+    USER_ID VARCHAR2(20) NOT NULL,
+    ACTION_TIMESTAMP TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ACTION_DETAILS VARCHAR2(500),
+    FOREIGN KEY (USER_ID) REFERENCES Users(MNO)
 );
 
--- Feedback Table (unchanged but added for completeness)
+-- Create Feedback Table
 CREATE TABLE Feedback (
-    FeedbackID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    UserID VARCHAR2(20),
-    Message VARCHAR2(500),
-    Timestamp DATE
+    FEEDBACK_ID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    USER_ID VARCHAR2(20),
+    MESSAGE VARCHAR2(500) NOT NULL,
+    TIMESTAMP DATE DEFAULT SYSDATE,
+    FOREIGN KEY (USER_ID) REFERENCES Users(MNO)
 );
 
--- SupportTickets Table (unchanged but added for completeness)
+-- Create SupportTickets Table
 CREATE TABLE SupportTickets (
-    TicketID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    UserID VARCHAR2(20),
-    Issue VARCHAR2(500),
-    Status VARCHAR2(20) CHECK(Status IN ('Open', 'In Progress', 'Resolved')),
-    Timestamp DATE
+    TICKET_ID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    USER_ID VARCHAR2(20),
+    ISSUE VARCHAR2(500) NOT NULL,
+    STATUS VARCHAR2(20) DEFAULT 'Open' CHECK(STATUS IN ('Open', 'In Progress', 'Resolved')),
+    TIMESTAMP DATE DEFAULT SYSDATE,
+    FOREIGN KEY (USER_ID) REFERENCES Users(MNO)
 );
 
--- Backups Table (unchanged but added for completeness)
+-- Create Backups Table
 CREATE TABLE Backups (
-    BackupID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    BackupDate DATE,
-    BackupFile VARCHAR2(200)
+    BACKUP_ID NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    BACKUP_DATE DATE DEFAULT SYSDATE,
+    BACKUP_FILE VARCHAR2(200) NOT NULL
 );
--- Insert User Procedure
+
+-- Create or replace procedures and functions
+
 CREATE OR REPLACE PROCEDURE InsertUser(
     p_mno IN VARCHAR2,
     p_mname IN VARCHAR2,
@@ -127,10 +260,10 @@ CREATE OR REPLACE PROCEDURE InsertUser(
 BEGIN
     INSERT INTO Users (MNO, MNAME, DOM, ADDR, MOB)
     VALUES (p_mno, p_mname, p_dom, p_addr, p_mob);
+    COMMIT;
 END;
 /
 
--- Update User Procedure
 CREATE OR REPLACE PROCEDURE UpdateUser(
     p_mno IN VARCHAR2,
     p_mname IN VARCHAR2,
@@ -142,30 +275,31 @@ BEGIN
     UPDATE Users
     SET MNAME = p_mname, DOM = p_dom, ADDR = p_addr, MOB = p_mob
     WHERE MNO = p_mno;
+    COMMIT;
 END;
 /
 
--- Delete User Procedure
 CREATE OR REPLACE PROCEDURE DeleteUser(
     p_mno IN VARCHAR2
 ) AS
 BEGIN
     DELETE FROM Users WHERE MNO = p_mno;
+    COMMIT;
 END;
 /
 
--- Search User Procedure
 CREATE OR REPLACE PROCEDURE SearchUser(
-    p_mno IN VARCHAR2,
+    p_search_term IN VARCHAR2,
     p_cursor OUT SYS_REFCURSOR
 ) AS
 BEGIN
     OPEN p_cursor FOR
-    SELECT * FROM Users WHERE MNO = p_mno;
+    SELECT * FROM Users 
+    WHERE UPPER(MNO) LIKE UPPER('%' || p_search_term || '%') 
+    OR UPPER(MNAME) LIKE UPPER('%' || p_search_term || '%');
 END;
 /
 
--- Insert Book Procedure
 CREATE OR REPLACE PROCEDURE InsertBook(
     p_bno IN VARCHAR2,
     p_bname IN VARCHAR2,
@@ -176,10 +310,10 @@ CREATE OR REPLACE PROCEDURE InsertBook(
 BEGIN
     INSERT INTO BookRecord (BNO, BNAME, AUTHOR, PRICE, PUBL)
     VALUES (p_bno, p_bname, p_auth, p_price, p_publ);
+    COMMIT;
 END;
 /
 
--- Update Book Procedure
 CREATE OR REPLACE PROCEDURE UpdateBook(
     p_bno IN VARCHAR2,
     p_bname IN VARCHAR2,
@@ -191,30 +325,32 @@ BEGIN
     UPDATE BookRecord
     SET BNAME = p_bname, AUTHOR = p_auth, PRICE = p_price, PUBL = p_publ
     WHERE BNO = p_bno;
+    COMMIT;
 END;
 /
 
--- Delete Book Procedure
 CREATE OR REPLACE PROCEDURE DeleteBook(
     p_bno IN VARCHAR2
 ) AS
 BEGIN
     DELETE FROM BookRecord WHERE BNO = p_bno;
+    COMMIT;
 END;
 /
 
--- Search Book Procedure
 CREATE OR REPLACE PROCEDURE SearchBook(
-    p_bno IN VARCHAR2,
+    p_search_term IN VARCHAR2,
     p_cursor OUT SYS_REFCURSOR
 ) AS
 BEGIN
     OPEN p_cursor FOR
-    SELECT * FROM BookRecord WHERE BNO = p_bno;
+    SELECT * FROM BookRecord 
+    WHERE UPPER(BNO) LIKE UPPER('%' || p_search_term || '%') 
+    OR UPPER(BNAME) LIKE UPPER('%' || p_search_term || '%') 
+    OR UPPER(AUTHOR) LIKE UPPER('%' || p_search_term || '%');
 END;
 /
 
--- Add Fee Structure Procedure
 CREATE OR REPLACE PROCEDURE AddFeeStructure(
     p_fee_type IN VARCHAR2,
     p_amount IN NUMBER
@@ -222,104 +358,120 @@ CREATE OR REPLACE PROCEDURE AddFeeStructure(
 BEGIN
     INSERT INTO FeeStructure (FEE_TYPE, AMOUNT)
     VALUES (p_fee_type, p_amount);
+    COMMIT;
 END;
 /
 
--- Record Payment Procedure
 CREATE OR REPLACE PROCEDURE RecordPayment(
     p_mno IN VARCHAR2,
-    p_amount IN NUMBER
+    p_amount IN NUMBER,
+    p_payment_method IN VARCHAR2 DEFAULT 'Cash'
 ) AS
 BEGIN
-    INSERT INTO Payment (MNO, AMOUNT)
-    VALUES (p_mno, p_amount);
+    INSERT INTO Payment (MNO, AMOUNT, PAYMENT_METHOD)
+    VALUES (p_mno, p_amount, p_payment_method);
+    COMMIT;
 END;
 /
 
--- Calculate Fine Function
-CREATE OR REPLACE FUNCTION CalculateFine(
-    p_mno IN VARCHAR2
-) RETURN NUMBER AS
-    v_fine NUMBER := 0;
+CREATE OR REPLACE FUNCTION CalculateFine(p_mno IN VARCHAR2)
+RETURN NUMBER
+IS
+    v_total_fine NUMBER := 0;
 BEGIN
-    SELECT SUM(10) INTO v_fine -- Example: $10 fine per overdue book
-    FROM Issue
-    WHERE MNO = p_mno AND RETURN_DATE IS NULL AND SYSDATE > ISSUE_DATE + 30;
-    RETURN v_fine;
+    SELECT NVL(SUM(
+        CASE 
+            WHEN i.RETURN_DATE IS NULL THEN 
+                GREATEST((SYSDATE - r.DUE_DATE) * 5, 0)
+            ELSE 
+                GREATEST((i.RETURN_DATE - r.DUE_DATE) * 5, 0)
+        END), 0)
+    INTO v_total_fine
+    FROM Issue i
+    JOIN Return r ON i.ISSUE_ID = r.ISSUE_ID
+    WHERE i.MNO = p_mno
+    AND r.DUE_DATE < CASE WHEN i.RETURN_DATE IS NULL THEN SYSDATE ELSE i.RETURN_DATE END;
+    
+    RETURN v_total_fine;
 END;
 /
 
--- Most Popular Books Procedure
 CREATE OR REPLACE PROCEDURE MostPopularBooks(
     p_cursor OUT SYS_REFCURSOR
 ) AS
 BEGIN
     OPEN p_cursor FOR
-    SELECT BNO, BNAME, COUNT(*) AS ISSUE_COUNT
-    FROM Issue
-    GROUP BY BNO, BNAME
+    SELECT b.BNO, b.BNAME, COUNT(*) AS ISSUE_COUNT
+    FROM Issue i
+    JOIN BookRecord b ON i.BNO = b.BNO
+    GROUP BY b.BNO, b.BNAME
     ORDER BY ISSUE_COUNT DESC;
 END;
 /
 
--- Most Active Members Procedure
 CREATE OR REPLACE PROCEDURE MostActiveMembers(
     p_cursor OUT SYS_REFCURSOR
 ) AS
 BEGIN
     OPEN p_cursor FOR
-    SELECT MNO, MNAME, COUNT(*) AS ISSUE_COUNT
-    FROM Issue
-    JOIN Users ON Issue.MNO = Users.MNO
-    GROUP BY MNO, MNAME
+    SELECT u.MNO, u.MNAME, COUNT(*) AS ISSUE_COUNT
+    FROM Issue i
+    JOIN Users u ON i.MNO = u.MNO
+    GROUP BY u.MNO, u.MNAME
     ORDER BY ISSUE_COUNT DESC;
 END;
 /
 
--- Books Issued Last Month Procedure
 CREATE OR REPLACE PROCEDURE BooksIssuedLastMonth(
     p_cursor OUT SYS_REFCURSOR
 ) AS
 BEGIN
     OPEN p_cursor FOR
-    SELECT BNO, BNAME
-    FROM Issue
-    JOIN BookRecord ON Issue.BNO = BookRecord.BNO
-    WHERE ISSUE_DATE >= ADD_MONTHS(SYSDATE, -1);
+    SELECT DISTINCT b.BNO, b.BNAME
+    FROM Issue i
+    JOIN BookRecord b ON i.BNO = b.BNO
+    WHERE i.ISSUE_DATE >= ADD_MONTHS(SYSDATE, -1);
 END;
 /
 
--- Notify Overdue Books Procedure
 CREATE OR REPLACE PROCEDURE NotifyOverdueBooks AS
+    CURSOR overdue_cur IS
+        SELECT i.MNO, u.MNAME, u.MOB, b.BNO, b.BNAME, r.DUE_DATE
+        FROM Issue i
+        JOIN Users u ON i.MNO = u.MNO
+        JOIN BookRecord b ON i.BNO = b.BNO
+        JOIN Return r ON i.ISSUE_ID = r.ISSUE_ID
+        WHERE i.RETURN_DATE IS NULL AND SYSDATE > r.DUE_DATE;
 BEGIN
-    FOR rec IN (SELECT MNO, BNO FROM Issue WHERE RETURN_DATE IS NULL AND SYSDATE > ISSUE_DATE + 30) LOOP
-        DBMS_OUTPUT.PUT_LINE('Notifying Member ' || rec.MNO || ' about overdue book ' || rec.BNO);
+    FOR rec IN overdue_cur LOOP
+        DBMS_OUTPUT.PUT_LINE('Notifying ' || rec.MNAME || ' (' || rec.MOB || 
+                            ') about overdue book: ' || rec.BNAME || 
+                            ', due on ' || TO_CHAR(rec.DUE_DATE, 'YYYY-MM-DD'));
     END LOOP;
 END;
 /
 
--- Add Acquisition Procedure
 CREATE OR REPLACE PROCEDURE AddAcquisition(
     p_bno IN VARCHAR2
 ) AS
 BEGIN
-    INSERT INTO Acquisition (BNO)
-    VALUES (p_bno);
+    INSERT INTO Acquisition (BNO, STATUS)
+    VALUES (p_bno, 'Pending');
+    COMMIT;
 END;
 /
 
--- Receive Goods Procedure
 CREATE OR REPLACE PROCEDURE ReceiveGoods(
     p_bno IN VARCHAR2
 ) AS
 BEGIN
     UPDATE Acquisition
-    SET ACQ_DATE = SYSDATE
-    WHERE BNO = p_bno;
+    SET ACQ_DATE = SYSDATE, STATUS = 'Received'
+    WHERE BNO = p_bno AND STATUS = 'Pending';
+    COMMIT;
 END;
 /
 
--- Process Invoice Procedure
 CREATE OR REPLACE PROCEDURE ProcessInvoice(
     p_bno IN VARCHAR2,
     p_invoice_number IN VARCHAR2,
@@ -328,10 +480,10 @@ CREATE OR REPLACE PROCEDURE ProcessInvoice(
 BEGIN
     INSERT INTO Invoice (BNO, INVOICE_NUMBER, INVOICE_DATE)
     VALUES (p_bno, p_invoice_number, p_invoice_date);
+    COMMIT;
 END;
 /
 
--- Add Fee Waiver Procedure
 CREATE OR REPLACE PROCEDURE AddFeeWaiver(
     p_mno IN VARCHAR2,
     p_fee_type IN VARCHAR2,
@@ -342,22 +494,10 @@ CREATE OR REPLACE PROCEDURE AddFeeWaiver(
 BEGIN
     INSERT INTO FeeWaiver (MNO, FEE_TYPE, WAIVER_AMOUNT, REASON, APPROVED_BY)
     VALUES (p_mno, p_fee_type, p_waiver_amount, p_reason, p_approved_by);
+    COMMIT;
 END;
 /
 
--- Record Payment History Procedure
-CREATE OR REPLACE PROCEDURE RecordPaymentHistory(
-    p_mno IN VARCHAR2,
-    p_amount IN NUMBER,
-    p_payment_method IN VARCHAR2
-) AS
-BEGIN
-    INSERT INTO Payment (MNO, AMOUNT, PAYMENT_METHOD)
-    VALUES (p_mno, p_amount, p_payment_method);
-END;
-/
-
--- Process Refund Procedure
 CREATE OR REPLACE PROCEDURE ProcessRefund(
     p_payment_id IN NUMBER,
     p_refund_amount IN NUMBER,
@@ -367,5 +507,97 @@ CREATE OR REPLACE PROCEDURE ProcessRefund(
 BEGIN
     INSERT INTO Refund (PAYMENT_ID, REFUND_AMOUNT, REASON, APPROVED_BY)
     VALUES (p_payment_id, p_refund_amount, p_reason, p_approved_by);
+    COMMIT;
+END;
+/
+
+-- Corrected CalculateMemberFines procedure
+CREATE OR REPLACE PROCEDURE CalculateMemberFines(
+    p_mno IN VARCHAR2,
+    p_cursor OUT SYS_REFCURSOR
+) AS
+BEGIN
+    OPEN p_cursor FOR
+    SELECT b.BNO, b.BNAME, r.DUE_DATE,
+           CASE 
+               WHEN i.RETURN_DATE IS NULL THEN NULL
+               ELSE i.RETURN_DATE
+           END as ACTUAL_RETURN_DATE,
+           GREATEST((CASE WHEN i.RETURN_DATE IS NULL THEN SYSDATE ELSE i.RETURN_DATE END - r.DUE_DATE) * 5, 0) as FINE_AMOUNT
+    FROM Issue i
+    JOIN BookRecord b ON i.BNO = b.BNO
+    JOIN Return r ON i.ISSUE_ID = r.ISSUE_ID
+    WHERE i.MNO = p_mno
+    AND r.DUE_DATE < CASE WHEN i.RETURN_DATE IS NULL THEN SYSDATE ELSE i.RETURN_DATE END;
+END;
+/
+
+-- Corrected PayMemberFines procedure
+CREATE OR REPLACE PROCEDURE PayMemberFines(
+    p_mno IN VARCHAR2,
+    p_payment_method IN VARCHAR2 DEFAULT 'Cash'
+) AS
+    v_total_fine NUMBER;
+    v_payment_id NUMBER;
+BEGIN
+    -- Calculate total fine
+    SELECT NVL(SUM(GREATEST((CASE WHEN i.RETURN_DATE IS NULL THEN SYSDATE ELSE i.RETURN_DATE END - r.DUE_DATE) * 5, 0)), 0)
+    INTO v_total_fine
+    FROM Issue i
+    JOIN Return r ON i.ISSUE_ID = r.ISSUE_ID
+    WHERE i.MNO = p_mno
+    AND r.DUE_DATE < CASE WHEN i.RETURN_DATE IS NULL THEN SYSDATE ELSE i.RETURN_DATE END;
+
+    IF v_total_fine > 0 THEN
+        -- Record payment
+        INSERT INTO Payment (MNO, AMOUNT, PAYMENT_METHOD)
+        VALUES (p_mno, v_total_fine, p_payment_method)
+        RETURNING PAYMENT_ID INTO v_payment_id;
+
+        -- Update fines
+        FOR rec IN (
+            SELECT i.ISSUE_ID, GREATEST((CASE WHEN i.RETURN_DATE IS NULL THEN SYSDATE ELSE i.RETURN_DATE END - r.DUE_DATE) * 5, 0) as fine
+            FROM Issue i
+            JOIN Return r ON i.ISSUE_ID = r.ISSUE_ID
+            WHERE i.MNO = p_mno
+            AND r.DUE_DATE < CASE WHEN i.RETURN_DATE IS NULL THEN SYSDATE ELSE i.RETURN_DATE END
+        ) LOOP
+            UPDATE Fines f
+            SET FINE_AMOUNT = rec.fine,
+                PAID_STATUS = 'Y',
+                PAYMENT_DATE = SYSDATE,
+                PAYMENT_METHOD = p_payment_method
+            WHERE f.ISSUE_ID = rec.ISSUE_ID
+            AND f.PAID_STATUS = 'N';
+
+            IF SQL%ROWCOUNT = 0 THEN
+                INSERT INTO Fines (ISSUE_ID, FINE_AMOUNT, PAID_STATUS, PAYMENT_DATE, PAYMENT_METHOD)
+                VALUES (rec.ISSUE_ID, rec.fine, 'Y', SYSDATE, p_payment_method);
+            END IF;
+        END LOOP;
+
+        COMMIT;
+        DBMS_OUTPUT.PUT_LINE('Payment of ₹' || v_total_fine || ' recorded for member ' || p_mno);
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('No fines to pay for member ' || p_mno);
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        DBMS_OUTPUT.PUT_LINE('Error processing payment: ' || SQLERRM);
+        RAISE;
+END;
+/
+
+-- Procedure to log audit actions
+CREATE OR REPLACE PROCEDURE LogAudit(
+    p_action_type IN VARCHAR2,
+    p_user_id IN VARCHAR2,
+    p_action_details IN VARCHAR2
+) AS
+BEGIN
+    INSERT INTO AUDIT_LOG (ACTION_TYPE, USER_ID, ACTION_DETAILS)
+    VALUES (p_action_type, p_user_id, p_action_details);
+    COMMIT;
 END;
 /
